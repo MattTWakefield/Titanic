@@ -30,10 +30,15 @@ Install(c(
           "e1071",
           "ROCR",
           "pROC",
-          "glemnet"))
+          "glemnet",
+          #other
+          "lubridate"))
 
 train <- read_csv('./input/train.csv')
 test  <- read_csv('./input/test.csv')
+
+# Old Code ----------------------------------------------------------------
+
 
 
 train$set <- "train"
@@ -47,8 +52,8 @@ lapply(full, function(x) length(unique(x)))
 missing_values<-full%>%summarise_all(funs(sum(is.na(.))/n()))
 
 missing_values <- gather(missing_values, key="feature", value="missing_pct")
-  
-missing_values %>% 
+
+missing_values %>%
   ggplot(aes(x=reorder(feature,-missing_pct),y=missing_pct)) +
   geom_bar(stat="identity",fill="red")+
   coord_flip()+theme_bw()
@@ -56,17 +61,17 @@ missing_values %>%
 #Useful data quality function for missing values
 
 checkColumn = function(df,colname){
-  
+
   testData = df[[colname]]
   numMissing = max(sum(is.na(testData)|is.nan(testData)|testData==''),0)
-  
-  
+
+
   if (class(testData) == 'numeric' | class(testData) == 'Date' | class(testData) == 'difftime' | class(testData) == 'integer'){
     list('col' = colname,'class' = class(testData), 'num' = length(testData) - numMissing, 'numMissing' = numMissing, 'numInfinite' = sum(is.infinite(testData)), 'avgVal' = mean(testData,na.rm=TRUE), 'minVal' = round(min(testData,na.rm = TRUE)), 'maxVal' = round(max(testData,na.rm = TRUE)))
   } else{
     list('col' = colname,'class' = class(testData), 'num' = length(testData) - numMissing, 'numMissing' = numMissing, 'numInfinite' = NA,  'avgVal' = NA, 'minVal' = NA, 'maxVal' = NA)
   }
-  
+
 }
 checkAllCols = function(df){
   resDF = data.frame()
@@ -85,7 +90,7 @@ miss_pct <- map_dbl(full, function(x) { round((sum(is.na(x)) / length(x)) * 100,
 miss_pct <- miss_pct[miss_pct > 0]
 
 data.frame(miss=miss_pct, var=names(miss_pct), row.names=NULL) %>%
-  ggplot(aes(x=reorder(var, -miss), y=miss)) + 
+  ggplot(aes(x=reorder(var, -miss), y=miss)) +
   geom_bar(stat='identity', fill='red') +
   labs(x='', y='% missing', title='Percent missing data by feature') +
   theme(axis.text.x=element_text(angle=90, hjust=1))
@@ -96,7 +101,7 @@ data.frame(miss=miss_pct, var=names(miss_pct), row.names=NULL) %>%
 full <- full %>%
   mutate(
     Age = ifelse(is.na(Age), mean(full$Age, na.rm=TRUE), Age),
-    `Age Group` = case_when(Age < 13 ~ "Age.0012", 
+    `Age Group` = case_when(Age < 13 ~ "Age.0012",
                             Age >= 13 & Age < 18 ~ "Age.1317",
                             Age >= 18 & Age < 60 ~ "Age.1859",
                             Age >= 60 ~ "Age.60Ov"))
@@ -111,29 +116,29 @@ title <-  gsub("^.*, (.*?)\\..*$", "\\1", names)
 
 full$title<-title
 
-full$title[full$title == 'Mlle']        <- 'Miss' 
+full$title[full$title == 'Mlle']        <- 'Miss'
 full$title[full$title == 'Ms']          <- 'Miss'
-full$title[full$title == 'Mme']         <- 'Mrs' 
+full$title[full$title == 'Mme']         <- 'Mrs'
 full$title[full$title == 'Lady']          <- 'Miss'
 full$title[full$title == 'Dona']          <- 'Miss'
 
 ## I am afraid creating a new varible with small data can causes a overfit
-## However, My thinking is that combining below feauter into original variable may loss some predictive power as they are all army folks, doctor and nobel peoples 
+## However, My thinking is that combining below feauter into original variable may loss some predictive power as they are all army folks, doctor and nobel peoples
 
-full$title[full$title == 'Capt']        <- 'Officer' 
-full$title[full$title == 'Col']        <- 'Officer' 
+full$title[full$title == 'Capt']        <- 'Officer'
+full$title[full$title == 'Col']        <- 'Officer'
 full$title[full$title == 'Major']   <- 'Officer'
 full$title[full$title == 'Dr']   <- 'Officer'
 full$title[full$title == 'Rev']   <- 'Officer'
 full$title[full$title == 'Don']   <- 'Officer'
 full$title[full$title == 'Sir']   <- 'Officer'
 full$title[full$title == 'the Countess']   <- 'Officer'
-full$title[full$title == 'Jonkheer']   <- 'Officer' 
+full$title[full$title == 'Jonkheer']   <- 'Officer'
 
-full$FamilySize <-full$SibSp + full$Parch + 1 
-full$FamilySized[full$FamilySize == 1] <- 'Single' 
-full$FamilySized[full$FamilySize < 5 & full$FamilySize >= 2] <- 'Small' 
-full$FamilySized[full$FamilySize >= 5] <- 'Big' 
+full$FamilySize <-full$SibSp + full$Parch + 1
+full$FamilySized[full$FamilySize == 1] <- 'Single'
+full$FamilySized[full$FamilySize < 5 & full$FamilySize >= 2] <- 'Small'
+full$FamilySized[full$FamilySize >= 5] <- 'Big'
 full$FamilySized=as.factor(full$FamilySized)
 
 ##Engineer features based on all the passengers with the same ticket
@@ -143,14 +148,14 @@ tickets <- unique(full$Ticket)
 for (i in 1:length(tickets)) {
   current.ticket <- tickets[i]
   party.indexes <- which(full$Ticket == current.ticket)
-  
+
   for (k in 1:length(party.indexes)) {
     ticket.unique[party.indexes[k]] <- length(party.indexes)
   }
 }
 
-#The independent variable, Survived, is labeled as a Bernoulli trial 
-#where a passenger or crew member surviving is encoded with the value of 1. 
+#The independent variable, Survived, is labeled as a Bernoulli trial
+#where a passenger or crew member surviving is encoded with the value of 1.
 #Among observations in the train set, approximately 38% of passengers and crew survived.
 
 full$ticket.unique <- ticket.unique
@@ -158,9 +163,9 @@ full$ticket.unique <- ticket.unique
 full$ticket.size[full$ticket.unique == 1]   <- 'Single'
 full$ticket.size[full$ticket.unique < 5 & full$ticket.unique>= 2]   <- 'Small'
 full$ticket.size[full$ticket.unique >= 5]   <- 'Big'
-  
+
 full <- full %>%
-  mutate(Survived = case_when(Survived==1 ~ "Yes", 
+  mutate(Survived = case_when(Survived==1 ~ "Yes",
                               Survived==0 ~ "No"))
 
 crude_summary <- full %>%
@@ -198,7 +203,7 @@ Install("alluvial")
 tbl_summary <- full %>%
   filter(set=="train") %>%
   group_by(Survived, Sex, Pclass, `Age Group`, title) %>%
-  summarise(N = n()) %>% 
+  summarise(N = n()) %>%
   ungroup %>%
   na.omit
 
@@ -269,7 +274,7 @@ Model_CDT <- train(x = train_val[,-7], y = train_val[,7], method = "rpart", tune
                    trControl = ctrl)
 
 ##Check the accurcay
-##Accurcay using 10 fold cross validation of Single tree is 0.8139 
+##Accurcay using 10 fold cross validation of Single tree is 0.8139
 ##Seems Overfitted earlier using Single tree, there our accurcay rate is 0.83
 
 # check the variable imporatnce, is it the same as in Single tree?
@@ -313,7 +318,7 @@ rf.2
 varImpPlot(rf.2)
 
 
-###Can see the Magic now, increase in accuracy by just removing 2 varibles, accuracy now is 84.03 
+###Can see the Magic now, increase in accuracy by just removing 2 varibles, accuracy now is 84.03
 
 ##Even though random forest is so power full we accept the model only after cross validation
 
@@ -338,7 +343,131 @@ View(train_val%>%
        summarise(count = n()))%>%
   filter(title %in% c("Mr","Officer"))
 
+# New Code ----------------------------------------------------------------
+
+EF1<-read.xlsx("F:/Fire Prevention/Analysis/GAT Effectiveness/Data/SF07_to_17.xlsx",1, na.strings = "")
+
+mlds<-EF1
+
+#Remove missing or outlaying values
+mlds<-mlds%>%filter(mlds$Property.Loss>0 & 
+       mlds$Property.Loss< 1000000 & 
+       !is.na(mlds$Property.Loss) & 
+       mlds$`Pre-Incident.Property.Value` > 20000 &
+       mlds$`Pre-Incident.Property.Value` < 1000000 &
+       !is.na(mlds$New.Cause.Description) &
+       mlds$GSM_FLAG == 0 &
+       mlds$`Alarm.Date.-.Year` != 2018 &
+       mlds$`Property.Use.Code.(National)` >=400 &
+       mlds$`Property.Use.Code.(National)`< 500)
+
+
+mlds<-mlds%>%select(`Alarm.Date.-.Month.of.Year`,
+             `Alarm.Date.-.Day.of.Week`, 
+             `Alarm.Date.-.Hour.of.Day`, 
+             `Incident.Response.Time.(HH:MM:SS)`, 
+             Property.Loss, 
+             `Pre-Incident.Property.Value`,
+             New.Cause.Description,
+             Item.First.Ignited.Description,
+             Area.of.Origin.Description,
+             Heat.Source.Description,
+             Non.Fire.Service.Fatalities,
+             Property.Use.Description)
+
+lapply(mlds, function(x) length(unique(x)))
+missing_values<-mlds%>%summarise_all(funs(sum(is.na(.))/n()))
+
+missing_values <- gather(missing_values, key="feature", value="missing_pct")
 
 
 
+fat<-mlds[mlds$Non.Fire.Service.Fatalities > 0,]
+
+lapply(fat, function(x) length(unique(x)))
+missing_values2<-fat%>%summarise_all(funs(sum(is.na(.))/n()))
+
+missing_values2 <- gather(missing_values2, key="feature", value="missing_pct")
+
+
+#Useful data quality function for missing values
+
+checkColumn = function(df,colname){
+  
+  testData = df[[colname]]
+  numMissing = max(sum(is.na(testData)|is.nan(testData)|testData==''),0)
+  
+  
+  if (class(testData) == 'numeric' | class(testData) == 'Date' | class(testData) == 'difftime' | class(testData) == 'integer'){
+    list('col' = colname,'class' = class(testData), 'num' = length(testData) - numMissing, 'numMissing' = numMissing, 'numInfinite' = sum(is.infinite(testData)), 'avgVal' = mean(testData,na.rm=TRUE), 'minVal' = round(min(testData,na.rm = TRUE)), 'maxVal' = round(max(testData,na.rm = TRUE)))
+  } else{
+    list('col' = colname,'class' = class(testData), 'num' = length(testData) - numMissing, 'numMissing' = numMissing, 'numInfinite' = NA,  'avgVal' = NA, 'minVal' = NA, 'maxVal' = NA)
+  }
+  
+}
+checkAllCols = function(df){
+  resDF = data.frame()
+  for (colName in names(df)){
+    resDF = rbind(resDF,as.data.frame(checkColumn(df=df,colname=colName)))
+  }
+  resDF
+}
+
+
+datatable(checkAllCols(mlds), style="bootstrap", class="table-condensed", options = list(dom = 'tp',scrollX = TRUE))
+
+
+miss_pct <- map_dbl(mlds, function(x) { round((sum(is.na(x)) / length(x)) * 100, 1) })
+
+miss_pct <- miss_pct[miss_pct > 0]
+
+data.frame(miss=miss_pct, var=names(miss_pct), row.names=NULL) %>%
+  ggplot(aes(x=reorder(var, -miss), y=miss)) +
+  geom_bar(stat='identity', fill='red') +
+  labs(x='', y='% missing', title='Percent missing data by feature') +
+  theme(axis.text.x=element_text(angle=90, hjust=1))
+
+#Add Percentage Loss
+mlds<-mlds%>%mutate(percloss=mlds$Property.Loss/mlds$`Pre-Incident.Property.Value`)
+
+mlds<-mlds%>%mutate(losscat=case_when(percloss < .10 ~ "Minor_Loss",
+                        percloss >= .10 & percloss <.50 ~ "Med_Loss",
+                        percloss >=.50 & percloss < 1 ~ "Major_Loss",
+                        percloss == 1.00 ~ "Total_Loss"))
+
+mlds$losscat<-factor(mlds$losscat,ordered = TRUE, levels = c("Minor_Loss","Med_Loss","Major_Loss","Total_Loss"))
+
+
+#convert everything to factors. 
+mlds$`Alarm.Date.-.Month.of.Year`<-factor(mlds$`Alarm.Date.-.Month.of.Year`)
+mlds$`Alarm.Date.-.Day.of.Week`<-factor(mlds$`Alarm.Date.-.Day.of.Week`)
+mlds$`Alarm.Date.-.Hour.of.Day`<-factor(mlds$`Alarm.Date.-.Hour.of.Day`)
+
+mlds$`Incident.Response.Time.(HH:MM:SS)`<- hms(mlds$`Incident.Response.Time.(HH:MM:SS)`)
+mlds$`Incident.Response.Time.(HH:MM:SS)`<-as.numeric(seconds(mlds$`Incident.Response.Time.(HH:MM:SS)`))
+
+mlds$New.Cause.Description<-factor(mlds$New.Cause.Description)
+mlds$Item.First.Ignited.Description<-factor(mlds$Item.First.Ignited.Description)
+mlds$Area.of.Origin.Description<-factor(mlds$Area.of.Origin.Description)
+mlds$Heat.Source.Description<-factor(mlds$Heat.Source.Description)
+
+mlds<-mlds%>%mutate(Fatality=case_when(Fatality = mlds$Non.Fire.Service.Fatalities > 0 ~ "1",
+                                       mlds$Non.Fire.Service.Fatalities == 0 ~ "0"))
+mlds$Fatality<-factor(mlds$Fatality)
+
+mlds$Property.Use.Description<-factor(mlds$Property.Use.Description)
+
+fml<-mlds%>%select(-Property.Loss,-`Pre-Incident.Property.Value`, -Non.Fire.Service.Fatalities,-percloss)
+
+fml$Area.of.Origin.Description<-as.character(fml$Area.of.Origin.Description)
+df<-as.data.frame(table(fml$Area.of.Origin.Description))%>%arrange(desc(Freq))
+
+fml<-fml%>%mutate(AOO=case_when(!Area.of.Origin.Description %in% df$Var1[1:10] ~ "Other",
+                       TRUE ~ Area.of.Origin.Description))
+fml$Area.of.Origin.Description<-fml$AOO
+fml<-fml%>%select(-AOO)
+
+#Create creating training and testing datasets
+
+mosaic(~New.Cause.Description + Area.of.Origin.Description + Fatality, data = fml, shade = TRUE, legend = TRUE)
 
