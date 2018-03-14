@@ -1,5 +1,5 @@
 #https://www.kaggle.com/hiteshp/head-start-for-data-scientist
-
+setwd("F:/Titanic/Titanic/input")
 source("Install.R")
 Install(c(
   #Data Wrangling
@@ -243,7 +243,7 @@ set.seed(1234)
 Model_DT=rpart(Survived~.,data=train_val,method="class")
 
 
-rpart.plot(Model_DT,extra =  3,fallen.leaves = T)
+rpart.plot(Model_DT,extra =  8,fallen.leaves = T)
 
 PRE_TDT=predict(Model_DT,data=train_val,type="class")
 confusionMatrix(PRE_TDT,train_val$Survived)
