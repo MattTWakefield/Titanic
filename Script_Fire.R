@@ -359,7 +359,10 @@ mlds<-mlds%>%filter(mlds$Property.Loss>0 &
        mlds$GSM_FLAG == 0 &
        mlds$`Alarm.Date.-.Year` != 2018 &
        mlds$`Property.Use.Code.(National)` >=400 &
-       mlds$`Property.Use.Code.(National)`< 500)
+       mlds$`Property.Use.Code.(National)`< 500,
+       #testing
+       mlds$New.Cause.Description!= "13 -- Unknown",
+       mlds$`Incident.Type.Code.(National)` == '111')
 
 
 mlds<-mlds%>%select(`Alarm.Date.-.Month.of.Year`,
@@ -465,9 +468,53 @@ df<-as.data.frame(table(fml$Area.of.Origin.Description))%>%arrange(desc(Freq))
 fml<-fml%>%mutate(AOO=case_when(!Area.of.Origin.Description %in% df$Var1[1:10] ~ "Other",
                        TRUE ~ Area.of.Origin.Description))
 fml$Area.of.Origin.Description<-fml$AOO
+fml$Area.of.Origin.Description<-factor(fml$Area.of.Origin.Description)
 fml<-fml%>%select(-AOO)
+
+
+fml$Item.First.Ignited.Description<-as.character(fml$Item.First.Ignited.Description)
+df<-as.data.frame(table(fml$Item.First.Ignited.Description))%>%arrange(desc(Freq))
+
+fml<-fml%>%mutate(AOO=case_when(!Item.First.Ignited.Description %in% df$Var1[1:10] ~ "Other",
+                       TRUE ~ Item.First.Ignited.Description))
+fml$Item.First.Ignited.Description<-fml$AOO
+fml$Item.First.Ignited.Description<-factor(fml$Item.First.Ignited.Description)
+fml<-fml%>%select(-AOO)
+
+fml$Heat.Source.Description<-as.character(fml$Heat.Source.Description)
+df<-as.data.frame(table(fml$Heat.Source.Description))%>%arrange(desc(Freq))
+
+fml<-fml%>%mutate(AOO=case_when(!Heat.Source.Description %in% df$Var1[1:10] ~ "Other",
+                       TRUE ~ Heat.Source.Description))
+fml$Heat.Source.Description<-fml$AOO
+fml$Heat.Source.Description<-factor(fml$Heat.Source.Description)
+fml<-fml%>%select(-AOO)
+
+
+#mosaic(~New.Cause.Description + Area.of.Origin.Description + Fatality, data = fml, shade = TRUE, legend = TRUE)
+
+
 
 #Create creating training and testing datasets
 
-mosaic(~New.Cause.Description + Area.of.Origin.Description + Fatality, data = fml, shade = TRUE, legend = TRUE)
+
+
+set.seed(500)
+ind=createDataPartition(fml$Fatality,times=1,p=0.6,list=FALSE)
+train_val=fml[ind,]
+test_val=fml[-ind,]
+
+
+
+set.seed(1234)
+Model_DT2=rpart(Fatality~.,data=fml,method="class", control=rpart.control(minsplit=2, minbucket=1, cp=0.007))
+
+Model_DT=rpart(train_val$Fatality ~ .,data=train_val,method="class")
+
+
+rpart.plot(Model_DT2,extra =  4,fallen.leaves = T)
+
+PRE_TDT=predict(Model_DT,data=train_val,type="class")
+confusionMatrix(PRE_TDT,train_val$Survived)
+
 
