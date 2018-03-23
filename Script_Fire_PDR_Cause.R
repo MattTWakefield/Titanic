@@ -2,6 +2,20 @@
 setwd("C:/KaggleTest")
 source("Install.R")
 source("readPDR2018.R")
+stripRF <- function(cm) {
+  cm$finalModel$predicted <- NULL 
+  cm$finalModel$oob.times <- NULL 
+  cm$finalModel$y <- NULL
+  cm$finalModel$votes <- NULL
+  cm$control$indexOut <- NULL
+  cm$control$index    <- NULL
+  cm$trainingData <- NULL
+  
+  attr(cm$terms,".Environment") <- c()
+  attr(cm$formula,".Environment") <- c()
+  
+  cm
+}
 Install(c(
   #Data Wrangling
           "tidyverse",
@@ -528,12 +542,31 @@ fml<-fml%>%dplyr::select(-ALARMS)
 fml<-fml%>%dplyr::select(-week)
 
 
-for (i in unique(fml$CAUSE_CODE)){
-  nam<-paste(CDF,i)
-  assign(nam, fml[fml$CAUSE_CODE]==)
+for (i in unique(train_val$CAUSE_CODE)){
+
+  train_val.l<-train_val[train_val$CAUSE_CODE == i,]
+  train_val.l<-train_val.l%>%dplyr::select(-CAUSE_CODE)
+  
+  # set.seed(500)
+  # ind=createDataPartition(ss$Fatality,times=1,p=0.6,list=FALSE)
+  # train_val=ss[ind,]
+  # test_val=ss[-ind,]
+  
+  assign(paste0("lg.",i), glm(Fatality ~ ., family = binomial(link=logit)
+                 , data = train_val.l))
+  
+  # assign(paste0("lg.",i),randomForest(x = train_val%>%dplyr::select(-Fatality),y = train_val%>%dplyr::select(Fatality)%>%unlist
+  # #                       , norm.votes = TRUE, proximity = FALSE, ntree = 20))
+  
 }
 
 
+for (i in 1:10){
+assign(nam, fml[fml$CAUSE_CODE == i,])  
+ind=createDataPartition(fml$Fatality,times=1,p=0.6,list=FALSE)
+train_val=fml[ind,]
+test_val=fml[-ind,]
+}
 
 #mosaic(~CAUSE_CODE + AREA_ORIG + Fatality, data = fml, shade = TRUE, legend = TRUE)
 
@@ -579,14 +612,15 @@ test_val=fml[-ind,]
 
 #logistic regression
 
-log.mod <- glm(Fatality ~ ., family = binomial(link=logit)
+log.mod <- glm(Fatality ~ month, family = binomial(link=logit)
                , data = train_val)
 bay.mod<- bayesglm(Fatality ~ ., family = binomial, data = train_val)
-
+train_val<-upSample(x=train_val[,-ncol(train_val)],train_val$Fatality)
+colnames(train_val)[13]<-"Fatality"
 train_val2<-train_val[,!names(train_val) %in% c("INC_TYPE","weekday","ALARMS_YN","RT")]
 
 memory.limit(10 * 10^10)
-rf.mod<- randomForest(x = train_val2[1:30000, -9],y = train_val2[1:30000, 9], norm.votes = TRUE, proximity = TRUE, ntree = 20)
+rf.mod<- randomForest(x = train_val2[,-9],y = train_val2[, 9], norm.votes = TRUE, proximity = FALSE, ntree = 500)
 
 table(train_val$Fatality,train.probs>0.5)
 
@@ -597,7 +631,7 @@ test.probs <- predict(log.mod, newdata =test_val ,type =  "response")
 Baytest.probs <- predict(bay.mod, newdata =test_val ,type =  "response")
 
 
-table(test_val$Fatality,test.probs>0.2)
+
 table(test_val$Fatality,Baytest.probs>0.2)
 
 
@@ -637,10 +671,12 @@ testdf$RT<-as.numeric(as.character(testdf$RT))
 
 predict(rf.mod, newdata=testdf[1,], type = "prob")
 
-predict(rf.mod, newdata=fml[20125,],type =  "prob")
+predict(rf.mod, newdata=fml[50546,],type =  "prob")
 
 tdf<-fml[20125,]
-predict(rf.mod, newdata=testdf, type = "prob" )
+p<-predict(rf.mod, newdata=test_val, type = "prob" )
+
+table(test_val$Fatality,p[,2]>0.5)
 
 tdf$RT<-as.numeric(tdf$RT)
 
@@ -649,6 +685,10 @@ tdf$RT<-as.numeric(tdf$RT)
 
 x <- "weekday"
 eval(parse(text=paste("fml$", x, sep = "")))
+
+set.seed((500))
+rf = randomForest(Species~., data = iris, norm.votes = TRUE, proximity = FALSE)
+predict(rf, iris[130,], type = "prob")
 
 
 
